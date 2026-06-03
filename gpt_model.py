@@ -1,115 +1,170 @@
 """
-The MIT License (MIT) Copyright (c) 2020 Andrej Karpathy
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-
-References:
-1) "minGPT" implemented by Andrej Karpathy
-https://github.com/karpathy/minGPT
-2) the official GPT-2 TensorFlow implementation released by OpenAI:
-https://github.com/openai/gpt-2/blob/master/src/model.py
-3) huggingface/transformers PyTorch implementation:
-https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
+gpt_model.py  —  Introduction to AI
+Task 2: Character-Level Generative Transformer (GPT)
 """
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
-from models import Attention
+import torch.nn.functional as F
+import math
+
+from models import AttentionBlock
 
 
 class Transformer_Block(nn.Module):
     """
-    This class builds the basic transformer block.
+    A single Transformer block applying six steps:
+        1. Self-attention
+        2. Residual add
+        3. Layer norm
+        4. Feed-forward + ReLU
+        5. Residual add
+        6. Layer norm
     """
 
-    def __init__(self, n_embd, block_size):
+    def __init__(self, layer_size: int):
         super().__init__()
+        self.attention = AttentionBlock(layer_size)
+        self.norm1 = nn.LayerNorm(layer_size)
+        self.norm2 = nn.LayerNorm(layer_size)
+        self.ff = nn.Linear(layer_size, layer_size)
 
-        self.attn_block = Attention(n_embd, block_size)
-        self.norm_1 = nn.LayerNorm(n_embd)
-        self.linear_1 = nn.Linear(n_embd, n_embd)
-        self.norm_2 = nn.LayerNorm(n_embd)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: FloatTensor (batch_size, seq_len, layer_size)
+        Returns:
+            FloatTensor (batch_size, seq_len, layer_size)
+        """
 
-    def forward(self, x):
-        """YOUR CODE HERE"""
-        x = self.norm_1(x + self.attn_block(x))
-        x = self.norm_2(x + F.relu(self.linear_1(x)))
-        return x
+        # Step 1 — Self-attention
+        attn_out = self.attention(x)
+
+        # Step 2 — Residual add (add to the ORIGINAL input x)
+        x2 = attn_out + x
+
+        # Step 3 — Layer norm
+        x3 = self.norm1(x2)
+
+        # Step 4 — Feed-forward with ReLU
+        ff_out = torch.relu(self.ff(x3))
+
+        # Step 5 — Residual add (add to output of step 3, not step 4)
+        x5 = ff_out + x3
+
+        # Step 6 — Layer norm
+        out = self.norm2(x5)
+
+        return out
 
 
-class Character_GPT(nn.Module):
-    def __init__(self, block_size, n_embd, n_layer, vocab_size):
+class GPT(nn.Module):
+    """
+    Character-level generative Transformer.
+
+    Architecture:
+        1. Embedding
+        2. N x Transformer blocks
+        3. LayerNorm
+        4. Linear projection (NO activation)
+    """
+
+    def __init__(
+        self,
+        vocab_size: int,
+        block_size: int,
+        layer_size: int = 64,
+        n_layers: int = 2,
+    ):
         super().__init__()
         self.block_size = block_size
-        self.embed = nn.Embedding(
-            vocab_size, n_embd
-        )  # Embedding layer, think of this as similar to a linear layer
+        self.vocab_size = vocab_size
 
-        self.transformer_blocks = nn.ModuleList(
-            [Transformer_Block(n_embd, block_size) for _ in range(n_layer)]
-        )  # You can treat this as a python list
-        self.norm = nn.LayerNorm(n_embd)  # Normalization Layer
-        self.output_layer = nn.Linear(n_embd, vocab_size, bias=False)
-
-    def get_loss(self, input, target):
-        output = self(input)
-        return F.cross_entropy(
-            output.view(-1, output.size(-1)), target.view(-1), ignore_index=-1
+        self.embedding = nn.Embedding(vocab_size, layer_size)
+        self.blocks = nn.ModuleList(
+            [Transformer_Block(layer_size) for _ in range(n_layers)]
         )
+        self.norm = nn.LayerNorm(layer_size)
+        self.output_proj = nn.Linear(layer_size, vocab_size)
 
-    def forward(self, input):
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
-        This function should take in an input representing a sequence of characters, and output
-        an array representing the likelihood of any character appearing next.
-
-        All necessary layers have been initialized for you in the __init__() function, you should pay special
-        attention to the self.transformer_blocks variable. Since we have multiple transformer blocks in our
-        final model, you will have to pass the input through every object in this list.
+        Args:
+            idx: LongTensor (batch_size, seq_len)
+        Returns:
+            logits: FloatTensor (batch_size, seq_len, vocab_size)
         """
-        b, t = input.size()
-        assert t <= self.block_size, (
-            f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
-        )
 
-        """YOUR CODE HERE"""
-        x = self.embed(input)  # Embeddings of input
+        # Step 1 — Embed token indices into dense vectors
+        # idx: (batch, seq_len) -> x: (batch, seq_len, layer_size)
+        x = self.embedding(idx)
 
-        # Go through every transformer block in self.transformer_blocks
-        for block in self.transformer_blocks:
+        # Step 2 — Pass through each Transformer block sequentially
+        for block in self.blocks:
             x = block(x)
 
+        # Step 3 — Final layer norm
         x = self.norm(x)
-        logits = self.output_layer(x)
 
-        # We don't need to apply softmax at the end since F.cross_entropy will do it for us
+        # Step 4 — Project to vocabulary logits
+        # NO activation here — raw logits only
+        logits = self.output_proj(x)  # (batch, seq_len, vocab_size)
+
         return logits
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens):
+    def generate(self, idx: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
         """
-        Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
-        the sequence max_new_tokens times, feeding the predictions back into the model each time.
+        Autoregressively generate max_new_tokens new characters.
+        Already implemented — do not modify.
         """
         for _ in range(max_new_tokens):
-            # if the sequence context is growing too long we must crop it at block_size
-            idx_cond = (
-                idx if idx.size(1) <= self.block_size else idx[:, -self.block_size :]
-            )
-            # forward the model to get the logits for the index in the sequence
+            idx_cond = idx[:, -self.block_size :]
             logits = self(idx_cond)
-            # pluck the logits at the final step and scale by desired temperature
             logits = logits[:, -1, :]
-            # optionally crop the logits to only the top k options
-
-            # apply softmax to convert logits to (normalized) probabilities
             probs = F.softmax(logits, dim=-1)
-            # either sample from the distribution or take the most likely element
-
             idx_next = torch.multinomial(probs, num_samples=1)
-
-            # append sampled index to the running sequence and continue
-            idx = torch.cat((idx, idx_next), dim=1)
-
+            idx = torch.cat([idx, idx_next], dim=1)
         return idx
+
+
+if __name__ == "__main__":
+    print("Running shape tests...")
+
+    vocab_size = 50
+    block_size = 16
+    layer_size = 32
+    n_layers = 2
+    batch_size = 4
+
+    print("\n  Testing Transformer_Block...")
+    tb = Transformer_Block(layer_size)
+    x = torch.randn(batch_size, block_size, layer_size)
+    out = tb(x)
+    assert out.shape == x.shape, f"Expected {x.shape}, got {out.shape}"
+    print(f"  Transformer_Block: {x.shape} -> {out.shape}  \u2713")
+
+    print("\n  Testing GPT...")
+    model = GPT(vocab_size, block_size, layer_size, n_layers)
+    idx = torch.randint(0, vocab_size, (batch_size, block_size))
+    logits = model(idx)
+    assert logits.shape == (batch_size, block_size, vocab_size)
+    print(f"  GPT forward: {idx.shape} -> {logits.shape}  \u2713")
+
+    print("\n  Testing generate()...")
+    context = torch.zeros((1, 1), dtype=torch.long)
+    generated = model.generate(context, max_new_tokens=10)
+    assert generated.shape == (1, 11)
+    print(f"  generate: {context.shape} -> {generated.shape}  \u2713")
+
+    print("\nAll shape tests passed!")

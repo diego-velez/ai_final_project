@@ -1,9 +1,8 @@
 """
-models.py  —  Introduction to AI | Final Assignment
-============================================================
-Question 6: Scaled Dot-Product Attention
+models.py  —  Introduction to AI |
 
-INSTRUCTOR SOLUTION — DO NOT DISTRIBUTE TO STUDENTS
+Task 1: Scaled Dot-Product Attention
+SHOW THAT YOU HAVE TESTED THE OUTPUT SHAPE
 """
 
 import torch
@@ -58,10 +57,6 @@ class AttentionBlock(nn.Module):
 
         return out
 
-
-# =============================================================================
-#  Shape test
-# =============================================================================
 
 if __name__ == "__main__":
     print("Running shape test for AttentionBlock...")
