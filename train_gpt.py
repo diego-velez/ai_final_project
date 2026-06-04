@@ -33,12 +33,12 @@ from gpt_model import GPT
 
 CORPUS_FILE   = 'input.txt'   # path to your text corpus (Task 2 corpus choice)
 
-BLOCK_SIZE    = 128            # context window in characters
-LAYER_SIZE    = 128            # embedding dimension
-N_LAYERS      = 4             # number of Transformer blocks
+BLOCK_SIZE    = 256            # context window in characters
+LAYER_SIZE    = 256            # embedding dimension
+N_LAYERS      = 6             # number of Transformer blocks
 LEARNING_RATE = 3e-4          # Adam learning rate
-MAX_ITERS     = 5000          # total training steps
-BATCH_SIZE    = 32            # sequences per training batch
+MAX_ITERS     = 10000          # total training steps
+BATCH_SIZE    = 64            # sequences per training batch
 EVAL_INTERVAL = 300           # print loss every N steps
 EVAL_ITERS    = 50            # steps averaged when estimating loss
 GENERATE_LEN  = 500           # characters to generate after training
