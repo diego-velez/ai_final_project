@@ -13,6 +13,9 @@ Yo use [uv](https://docs.astral.sh/uv) como mi manejador de Python. Para correr 
 ## Training
 
 I used [Shakespeare's Complete Works](https://github.com/karpathy/char-rnn/blob/master/data/tinyshakespeare/input.txt) to train the model.
+I chose this because it seemed like the easiest dataset to download.
+Originally, I was going to use wikipedia articles but I could not extract them properly in order to feed it to the model.
+
 Three runs with different parameters were conducted, all with the same training dataset.
 Increasing `N_LAYERS`, `LAYER_SIZE` and `MAX_ITERS` consistently
 reduced both training and validation loss across all three runs.
