@@ -2,28 +2,44 @@
 
 Yo use [uv](https://docs.astral.sh/uv) como mi manejador de Python. Para correr el programa debe instalar uv y setiar el ambiente con `uv sync`.
 
-# Task 1
+## Task 1
 
 ![Task 1 Screenshot](task-1.png)
 
-# Task 2
+## Task 2
 
 ![Task 2 Screenshot](task-2.png)
 
-# Training
+## Training
 
 I used [Shakespeare's Complete Works](https://github.com/karpathy/char-rnn/blob/master/data/tinyshakespeare/input.txt) to train the model.
 Three runs with different parameters were conducted, all with the same training dataset.
 Increasing `N_LAYERS`, `LAYER_SIZE` and `MAX_ITERS` consistently
 reduced both training and validation loss across all three runs.
 
-- **Run 1:** Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 64, `N_LAYERS` of 2, and `MAX_ITERS` of 3000.
-  After training, it produced near-random character sequences with occasional English fragments.
-- **Run 2:** Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 128, `N_LAYERS` of 4, and `MAX_ITERS` of 5000.
-  After training, it produced recognizable English words and rough dialogue structure.
-- **Run 3:** Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 256, `N_LAYERS` of 6, `MAX_ITERS` of 10000, and `BATCH_SIZE` of 64 instead of 32.
-  After training, it produced actual Shakespeare character names (i.e. Camillo, Isabella),
-  grammatically plausible sentences, and correct speaker-colon-newline dialogue formatting.
+### Run 1
+
+Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 64, `N_LAYERS` of 2, and `MAX_ITERS` of 3000.
+After training, it produced near-random character sequences with occasional English fragments.
+
+![Run 1 output](training-run-1.png)
+
+### Run 2
+
+Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 128, `N_LAYERS` of 4, and `MAX_ITERS` of 5000.
+After training, it produced recognizable English words and rough dialogue structure.
+
+![Run 2 output](training-run-2.png)
+
+### Run 3
+
+Utilized `BLOCK_SIZE` and `LAYER_SIZE` of 256, `N_LAYERS` of 6, `MAX_ITERS` of 10000, and `BATCH_SIZE` of 64 instead of 32.
+After training, it produced actual Shakespeare character names (i.e. Camillo, Isabella),
+grammatically plausible sentences, and correct speaker-colon-newline dialogue formatting.
+
+![Run 3 output](training-run-3.png)
+
+### Conclusion
 
 Between runs the main trade-off is training time, which scaled non-linearly.
 Run 1 took 19 seconds, run 2 took 2m 35s, and run 3 took 1h 22m.
